@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gamechange Marketplace — Znajdź specjalistę</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f2ec;
+  --ink: #0e0d0b;
+  --ink2: #3a3830;
+  --muted: #9a9488;
+  --rule: #d8d3c8;
+  --accent: #E8432D;
+  --surface: #ffffff;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.mp-header {
+  border-bottom: 1px solid var(--rule);
+  padding: 20px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mp-header-label {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.mp-header-back {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.mp-header-back:hover { color: var(--ink); }
+
+.mp-intro {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 64px 24px 40px;
+  text-align: center;
+}
+.mp-intro-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(32px, 5vw, 48px);
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+  margin-bottom: 12px;
+}
+.mp-intro-sub {
+  font-size: 15px;
+  color: var(--muted);
+  font-weight: 300;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.mp-paths {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 24px 24px 64px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 640px) {
+  .mp-paths { grid-template-columns: 1fr; }
+}
+
+.mp-path-card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: 36px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: border-color 0.15s;
+}
+.mp-path-card:hover { border-color: var(--ink); }
+
+.mp-path-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.mp-path-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 24px;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+.mp-path-desc {
+  font-size: 14px;
+  color: var(--ink2);
+  font-weight: 300;
+  line-height: 1.7;
+  flex: 1;
+}
+.mp-path-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ink);
+  color: var(--bg);
+  border: none;
+  padding: 14px 24px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: background 0.15s;
+}
+.mp-path-btn:hover { background: var(--accent); color: var(--ink); }
+
+.mp-diagnosis-cta {
+  max-width: 780px;
+  margin: 0 auto 64px;
+  padding: 0 24px;
+  text-align: center;
+}
+.mp-diagnosis-cta a {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.mp-diagnosis-cta a:hover { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="mp-header">
+  <div class="mp-header-label">Gamechange Marketplace</div>
+  <a class="mp-header-back" href="https://gamechange-diagnoza.vercel.app">← Wróć do Gamechange</a>
+</div>
+
+<div class="mp-intro">
+  <div class="mp-intro-title">Znajdź specjalistę</div>
+  <p class="mp-intro-sub">Certyfikowani specjaliści sportowi we Wrocławiu — stacjonarnie lub online.</p>
+</div>
+
+<div class="mp-paths">
+
+  <div class="mp-path-card">
+    <div class="mp-path-eyebrow">Wiem kogo szukam</div>
+    <div class="mp-path-title">Przeglądaj listę<br>specjalistów</div>
+    <p class="mp-path-desc">Filtruj po kategorii i lokalizacji, zobacz profile i dostępne terminy.</p>
+    <button class="mp-path-btn" onclick="window.location.href='specialist_list.html'">
+      Szukaj →
+    </button>
+  </div>
+
+  <div class="mp-path-card">
+    <div class="mp-path-eyebrow">Nie wiem od czego zacząć</div>
+    <div class="mp-path-title">Pomożemy Ci<br>dopasować</div>
+    <p class="mp-path-desc">Odpowiedz na kilka pytań, a wskażemy specjalistę pasującego do Twojej sytuacji.</p>
+    <button class="mp-path-btn" onclick="window.location.href='guided_match.html'">
+      Zacznij →
+    </button>
+  </div>
+
+</div>
+
+<div class="mp-diagnosis-cta">
+  <a href="https://gamechange-diagnoza.vercel.app">Zrób diagnozę Gamechange, żeby dopasowanie było dokładniejsze →</a>
+</div>
+
+<script>
+// Przekazujemy dalej kontekst z URL (gc_user, gc_injury_mode) do
+// obu ścieżek — zgodnie z ustaleniem: dwie ścieżki są równorzędne,
+// żadna nie jest automatycznie wymuszona. Ktoś z diagnozą wciąż
+// MOŻE wybrać "Wiem kogo szukam", kontekst po prostu jedzie ze
+// swoim wyborem, gdziekolwiek pójdzie.
+function appendContextToLink(baseUrl) {
+  const params = window.location.search;
+  return params ? baseUrl + params : baseUrl;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.mp-path-btn').forEach(btn => {
+    const onclickAttr = btn.getAttribute('onclick');
+    if (!onclickAttr) return;
+    const match = onclickAttr.match(/window\.location\.href='([^']+)'/);
+    if (match) {
+      const target = appendContextToLink(match[1]);
+      btn.onclick = () => { window.location.href = target; };
+    }
+  });
+});
+</script>
+
+</body>
+</html>

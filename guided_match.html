@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gamechange Marketplace — Dopasowanie</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f2ec;
+  --ink: #0e0d0b;
+  --ink2: #3a3830;
+  --muted: #9a9488;
+  --rule: #d8d3c8;
+  --accent: #E8432D;
+  --surface: #ffffff;
+  --green: #2a7a3a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.mp-header {
+  border-bottom: 1px solid var(--rule);
+  padding: 20px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mp-header-label {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.mp-header-back {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.mp-body {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 56px 24px;
+}
+
+.mp-step-label {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.mp-question {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(24px, 4vw, 32px);
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  margin-bottom: 28px;
+}
+
+.mp-option-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 18px 20px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  color: var(--ink2);
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: all 0.12s;
+}
+.mp-option-btn:hover { border-color: var(--ink); color: var(--ink); }
+.mp-option-btn.sel { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+
+/* Wynik dopasowania */
+.mp-result-wrap { display: none; }
+.mp-result-badge {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  background: rgba(232,67,45,0.1);
+  color: var(--accent);
+  margin-bottom: 16px;
+}
+.mp-result-badge.urgent {
+  background: rgba(214,60,47,0.12);
+  color: #C0392B;
+}
+.mp-result-category {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 28px;
+  letter-spacing: 0.01em;
+  margin-bottom: 12px;
+}
+.mp-result-reason {
+  font-size: 14px;
+  color: var(--ink2);
+  font-weight: 300;
+  line-height: 1.75;
+  margin-bottom: 28px;
+}
+.mp-result-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ink);
+  color: var(--bg);
+  border: none;
+  padding: 16px 28px;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.mp-result-btn:hover { background: var(--accent); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="mp-header">
+  <div class="mp-header-label">Gamechange Marketplace</div>
+  <a class="mp-header-back" href="index.html">← Wróć</a>
+</div>
+
+<div class="mp-body">
+
+  <!-- Widok: dopasowanie na bazie istniejącej diagnozy Gamechange
+       (pokazuje się TYLKO gdy przyszliśmy z linku z gc_user i
+       faktycznie znaleźliśmy diagnozę tego zawodnika w bazie) -->
+  <div id="mp-diagnosis-match" style="display:none;">
+    <div class="mp-step-label">Na bazie Twojej diagnozy</div>
+    <div class="mp-question" id="mp-diagnosis-loading">Sprawdzamy Twoją ostatnią diagnozę...</div>
+  </div>
+
+  <!-- Pytanie 1 -->
+  <div id="mp-step-1">
+    <div class="mp-step-label">Krok 1 z 2</div>
+    <div class="mp-question">Co Cię sprowadza?</div>
+    <button class="mp-option-btn" onclick="selectConcern('acute_pain')">Ostry ból lub kontuzja</button>
+    <button class="mp-option-btn" onclick="selectConcern('systematic_work')">Chcę systematycznie nad czymś popracować</button>
+    <button class="mp-option-btn" onclick="selectConcern('other')">Coś innego</button>
+  </div>
+
+  <!-- Pytanie 2a - jeśli systematic_work -->
+  <div id="mp-step-2-systematic" style="display:none;">
+    <div class="mp-step-label">Krok 2 z 2</div>
+    <div class="mp-question">Który obszar najbardziej pasuje?</div>
+    <button class="mp-option-btn" onclick="selectGoal('strength_conditioning')">Chcę biegać szybciej i być silniejszy</button>
+    <button class="mp-option-btn" onclick="selectGoal('physiotherapy')">Wracam do formy po kontuzji / przeciążeniu</button>
+    <button class="mp-option-btn" onclick="selectGoal('nutrition')">Chcę lepiej zarządzać energią i dietą</button>
+    <button class="mp-option-btn" onclick="selectGoal('technical_tactical')">Chcę poprawić technikę i czytanie gry</button>
+    <button class="mp-option-btn" onclick="selectGoal('sports_psychology')">Pracuję nad głową — presją, pewnością siebie</button>
+  </div>
+
+  <!-- Ekran dla "other" - brak dopasowania, zawróć do przeglądania -->
+  <div id="mp-step-other" style="display:none;">
+    <div class="mp-question">Nie jesteśmy pewni jak dopasować to automatycznie</div>
+    <p style="font-size:14px;color:var(--ink2);font-weight:300;margin-bottom:24px;">Najlepiej będzie przejrzeć pełną listę specjalistów samodzielnie.</p>
+    <button class="mp-result-btn" onclick="window.location.href='specialist_list.html'">Przeglądaj listę →</button>
+  </div>
+
+  <!-- Wynik dopasowania -->
+  <div class="mp-result-wrap" id="mp-result">
+    <div class="mp-result-badge" id="mp-result-badge">Dopasowanie</div>
+    <div class="mp-result-category" id="mp-result-category"></div>
+    <p class="mp-result-reason" id="mp-result-reason"></p>
+    <button class="mp-result-btn" onclick="goToFilteredList()">Zobacz specjalistów →</button>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = 'https://kqrbztsvepjtggjmmcdx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_EoYRIZpDhUSdNSJDXWl4Ew_SG8aJABP';
+
+// ------------------------------------------------------------
+// Mapowanie segment → kategoria + nazwy wyświetlane (kopia z
+// recommendation_engine.js, świadomie zduplikowane — statyczny
+// HTML bez bundlera, jak reszta plików Marketplace).
+// ------------------------------------------------------------
+const SEGMENT_TO_CATEGORY_CHRONIC = {
+  moc: 'strength_conditioning', wytrzymalosc: 'strength_conditioning', fizycznosc: 'strength_conditioning',
+  regeneracja: 'physiotherapy', tolerancja: 'physiotherapy', odpornosc: 'physiotherapy',
+  odzywianie: 'nutrition',
+  techFund: 'technical_tactical', techSpec: 'technical_tactical', percepcja: 'technical_tactical', decyzja: 'technical_tactical',
+  koncentracja: 'sports_psychology', mental: 'sports_psychology'
+};
+const INJURY_MODE_OVERRIDE_CATEGORY = {
+  moc: 'orthopedics', wytrzymalosc: 'orthopedics', fizycznosc: 'orthopedics',
+  regeneracja: 'orthopedics', tolerancja: 'orthopedics', odpornosc: 'orthopedics'
+};
+// Mapowanie NAZWA WYŚWIETLANA (jak zapisana w diagnostics.top_deficits)
+// → ID segmentu. Musi się zgadzać 1:1 z tablicą SEGS w index.html
+// głównej aplikacji — sprawdzone bezpośrednio z tamtego pliku,
+// nie zgadywane, bo niektóre segmenty mają inne nazwy używane w
+// innych miejscach kodu (np. 'mental' bywa 'STAN MENTAL.' gdzie
+// indziej, ale w SEGS — jedynym źródle zapisywanym do bazy — jest
+// 'ODWAGA W GRZE').
+const SEGMENT_NAME_TO_ID = {
+  'MOC': 'moc',
+  'WYTRZYMAŁOŚĆ': 'wytrzymalosc',
+  'FIZYCZNOŚĆ': 'fizycznosc',
+  'TECHNIKA FUND.': 'techFund',
+  'TECHNIKA SPEC.': 'techSpec',
+  'TOL. OBCIĄŻEŃ': 'tolerancja',
+  'REGENERACJA': 'regeneracja',
+  'ODPORNOŚĆ': 'odpornosc',
+  'ODŻYWIENIE': 'odzywianie',
+  'KONCENTRACJA': 'koncentracja',
+  'ODWAGA W GRZE': 'mental',
+  'PERCEPCJA': 'percepcja',
+  'SZYBK. DECYZJI': 'decyzja'
+};
+
+function recommendSpecialistCategory({ topDeficitSegmentId, injuryModeActive }) {
+  if (!topDeficitSegmentId) return null;
+  if (injuryModeActive && INJURY_MODE_OVERRIDE_CATEGORY[topDeficitSegmentId]) {
+    const category = INJURY_MODE_OVERRIDE_CATEGORY[topDeficitSegmentId];
+    return {
+      category: category,
+      categoryLabel: SPECIALIST_CATEGORIES[category],
+      urgent: true,
+      reason: 'Masz aktywny tryb kontuzji, a Twój największy wykryty obszar dotyczy ciała — w tej sytuacji warto skonsultować się z ortopedą.'
+    };
+  }
+  const category = SEGMENT_TO_CATEGORY_CHRONIC[topDeficitSegmentId];
+  if (!category) return null;
+  return {
+    category: category,
+    categoryLabel: SPECIALIST_CATEGORIES[category],
+    urgent: false,
+    reason: `Twoja ostatnia diagnoza Gamechange wskazała ten obszar jako główny do pracy — naturalnie pasuje to do specjalizacji: ${SPECIALIST_CATEGORIES[category]}.`
+  };
+}
+
+// ------------------------------------------------------------
+// Wykrywanie kontekstu z URL (przekazanego z index.html Gamechange)
+// i próba automatycznego dopasowania na bazie diagnozy.
+// ------------------------------------------------------------
+async function tryDiagnosisBasedMatch() {
+  const params = new URLSearchParams(window.location.search);
+  const gcUser = params.get('gc_user');
+  if (!gcUser) return false; // brak kontekstu — pokaż zwykły formularz
+
+  document.getElementById('mp-diagnosis-match').style.display = 'block';
+
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/diagnostics?user_id=eq.${gcUser}&top_deficits=not.is.null&order=created_at.desc&limit=1&select=top_deficits`,
+      { headers: { apikey: SUPABASE_KEY } }
+    );
+    const rows = await res.json();
+
+    if (!rows || rows.length === 0 || !rows[0].top_deficits) {
+      // Brak diagnozy z zapisanym top_deficits — pokaż zwykły formularz.
+      document.getElementById('mp-diagnosis-match').style.display = 'none';
+      return false;
+    }
+
+    const topDeficitName = rows[0].top_deficits.split(',')[0].trim();
+    const segmentId = SEGMENT_NAME_TO_ID[topDeficitName];
+    const injuryModeActive = params.get('gc_injury_mode') === '1';
+
+    const result = recommendSpecialistCategory({ topDeficitSegmentId: segmentId, injuryModeActive });
+    if (!result) {
+      document.getElementById('mp-diagnosis-match').style.display = 'none';
+      return false;
+    }
+
+    showDiagnosisMatchResult(result);
+    return true;
+  } catch (e) {
+    console.log('tryDiagnosisBasedMatch error:', e);
+    document.getElementById('mp-diagnosis-match').style.display = 'none';
+    return false;
+  }
+}
+
+function showDiagnosisMatchResult(result) {
+  document.getElementById('mp-step-1').style.display = 'none';
+  const wrap = document.getElementById('mp-diagnosis-match');
+  wrap.innerHTML = `
+    <div class="mp-step-label">Na bazie Twojej diagnozy</div>
+    <div class="mp-question">${result.categoryLabel}</div>
+    <p style="font-size:14px;color:var(--ink2);font-weight:300;margin-bottom:24px;">${result.reason}</p>
+    <button class="mp-result-btn" onclick="goToFilteredListFromCategory('${result.category}')">Zobacz specjalistów →</button>
+    <button class="mp-option-btn" style="margin-top:12px;" onclick="showStandardFormInstead()">Wolę odpowiedzieć na pytania sam</button>
+  `;
+}
+
+function goToFilteredListFromCategory(category) {
+  window.location.href = `specialist_list.html?category=${category}`;
+}
+
+function showStandardFormInstead() {
+  document.getElementById('mp-diagnosis-match').style.display = 'none';
+  document.getElementById('mp-step-1').style.display = 'block';
+}
+
+// ------------------------------------------------------------
+// Silnik rekomendacji (kopia recommendFromQuickForm z
+// recommendation_engine.js — zduplikowane celowo, bo to plik
+// statyczny bez bundlera; jeśli w przyszłości dojdzie build step,
+// można to zaimportować zamiast kopiować).
+// ------------------------------------------------------------
+const SPECIALIST_CATEGORIES = {
+  strength_conditioning: 'Trener przygotowania motorycznego',
+  physiotherapy: 'Fizjoterapeuta',
+  orthopedics: 'Ortopeda',
+  nutrition: 'Dietetyk sportowy',
+  technical_tactical: 'Trener Techniczno-Taktyczny',
+  sports_psychology: 'Psycholog sportowy'
+};
+
+function recommendFromQuickForm({ concernType, systematicGoal }) {
+  if (concernType === 'acute_pain') {
+    return {
+      category: 'orthopedics',
+      categoryLabel: SPECIALIST_CATEGORIES.orthopedics,
+      urgent: true,
+      reason: 'Zgłaszasz ostry ból — w takiej sytuacji najpierw warto skonsultować się z ortopedą.'
+    };
+  }
+  if (concernType === 'systematic_work' && systematicGoal && SPECIALIST_CATEGORIES[systematicGoal]) {
+    return {
+      category: systematicGoal,
+      categoryLabel: SPECIALIST_CATEGORIES[systematicGoal],
+      urgent: false,
+      reason: `Wybrałeś obszar, który najlepiej pasuje do specjalizacji: ${SPECIALIST_CATEGORIES[systematicGoal]}.`
+    };
+  }
+  return null;
+}
+
+function selectConcern(concernType) {
+  document.getElementById('mp-step-1').style.display = 'none';
+
+  if (concernType === 'acute_pain') {
+    const result = recommendFromQuickForm({ concernType: 'acute_pain' });
+    showResult(result);
+  } else if (concernType === 'systematic_work') {
+    document.getElementById('mp-step-2-systematic').style.display = 'block';
+  } else {
+    document.getElementById('mp-step-other').style.display = 'block';
+  }
+}
+
+function selectGoal(goal) {
+  document.getElementById('mp-step-2-systematic').style.display = 'none';
+  const result = recommendFromQuickForm({ concernType: 'systematic_work', systematicGoal: goal });
+  showResult(result);
+}
+
+let _currentRecommendedCategory = null;
+
+function showResult(result) {
+  if (!result) return;
+  _currentRecommendedCategory = result.category;
+
+  const badge = document.getElementById('mp-result-badge');
+  badge.textContent = result.urgent ? 'Warto rozważyć teraz' : 'Dopasowanie';
+  badge.className = 'mp-result-badge' + (result.urgent ? ' urgent' : '');
+
+  document.getElementById('mp-result-category').textContent = result.categoryLabel;
+  document.getElementById('mp-result-reason').textContent = result.reason;
+  document.getElementById('mp-result').style.display = 'block';
+}
+
+function goToFilteredList() {
+  window.location.href = `specialist_list.html?category=${_currentRecommendedCategory}`;
+}
+
+// Wywołanie na samym końcu skryptu — WAŻNE: musi być po wszystkich
+// definicjach const (SPECIALIST_CATEGORIES, SEGMENT_TO_CATEGORY_CHRONIC,
+// itd.), bo const nie ma hoistingu jak function — wywołanie przed
+// definicją rzuciłoby ReferenceError (temporal dead zone).
+tryDiagnosisBasedMatch();
+</script>
+
+</body>
+</html>

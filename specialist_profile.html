@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gamechange Marketplace — Profil specjalisty</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f2ec;
+  --ink: #0e0d0b;
+  --ink2: #3a3830;
+  --muted: #9a9488;
+  --rule: #d8d3c8;
+  --accent: #E8432D;
+  --surface: #ffffff;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; font-size: 15px; line-height: 1.6; }
+
+.mp-header { border-bottom: 1px solid var(--rule); padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+.mp-header-label { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; }
+.mp-header-back { font-size: 13px; color: var(--muted); text-decoration: none; }
+
+.mp-body { max-width: 640px; margin: 0 auto; padding: 40px 24px 80px; }
+
+.mp-profile-top { display: flex; gap: 20px; margin-bottom: 32px; align-items: flex-start; }
+.mp-profile-photo {
+  width: 96px; height: 96px; flex-shrink: 0;
+  background: var(--rule); display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: var(--muted); text-align: center;
+}
+.mp-profile-name { font-family: 'Bebas Neue', sans-serif; font-size: 30px; letter-spacing: 0.01em; line-height: 1; margin-bottom: 4px; }
+.mp-profile-category { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+.mp-profile-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--accent); cursor: help; margin-bottom: 8px; }
+.mp-profile-location { font-size: 13px; color: var(--muted); }
+
+.mp-section { margin-bottom: 32px; }
+.mp-section-label { font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.mp-section-body { font-size: 14px; color: var(--ink2); font-weight: 300; line-height: 1.75; }
+
+.mp-tag-list { display: flex; flex-direction: column; gap: 8px; }
+.mp-tag-item { font-size: 14px; color: var(--ink2); font-weight: 300; padding-left: 16px; position: relative; }
+.mp-tag-item::before { content: '—'; position: absolute; left: 0; color: var(--muted); }
+
+.mp-history-item { border-left: 2px solid var(--rule); padding-left: 16px; margin-bottom: 20px; }
+.mp-history-text { font-size: 14px; color: var(--ink2); font-weight: 300; line-height: 1.75; }
+
+.mp-reviews-empty {
+  border: 1px dashed var(--rule);
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.mp-book-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--ink); color: var(--bg); border: none;
+  padding: 16px 32px; font-family: 'Bebas Neue', sans-serif; font-size: 17px;
+  letter-spacing: 0.08em; cursor: pointer; margin-top: 12px;
+}
+.mp-book-btn:hover { background: var(--accent); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="mp-header">
+  <div class="mp-header-label">Gamechange Marketplace</div>
+  <a class="mp-header-back" href="specialist_list.html">← Wróć do listy</a>
+</div>
+
+<div class="mp-body" id="mp-profile-body">
+  <p style="color:var(--muted);">Wczytywanie profilu...</p>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://kqrbztsvepjtggjmmcdx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_EoYRIZpDhUSdNSJDXWl4Ew_SG8aJABP';
+
+const CATEGORY_LABELS = {
+  strength_conditioning: 'Trener przygotowania motorycznego',
+  physiotherapy: 'Fizjoterapeuta',
+  orthopedics: 'Ortopeda',
+  nutrition: 'Dietetyk sportowy',
+  technical_tactical: 'Trener Techniczno-Taktyczny',
+  sports_psychology: 'Psycholog sportowy'
+};
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+function getSpecialistIdFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('id');
+}
+
+async function loadProfile() {
+  const id = getSpecialistIdFromUrl();
+  const body = document.getElementById('mp-profile-body');
+
+  if (!id) {
+    body.innerHTML = '<p style="color:var(--muted);">Brak wskazanego specjalisty.</p>';
+    return;
+  }
+
+  try {
+    const [specRes, expRes, reviewsRes] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/specialists?id=eq.${id}&select=*`, { headers: { apikey: SUPABASE_KEY } }),
+      fetch(`${SUPABASE_URL}/rest/v1/specialist_experience?specialist_id=eq.${id}&order=display_order.asc`, { headers: { apikey: SUPABASE_KEY } }),
+      fetch(`${SUPABASE_URL}/rest/v1/specialist_reviews?specialist_id=eq.${id}`, { headers: { apikey: SUPABASE_KEY } })
+    ]);
+
+    const specialists = await specRes.json();
+    const experience = await expRes.json();
+    const reviews = await reviewsRes.json();
+
+    if (!specialists || specialists.length === 0) {
+      body.innerHTML = '<p style="color:var(--muted);">Nie znaleziono tego profilu.</p>';
+      return;
+    }
+
+    renderProfile(specialists[0], experience, reviews);
+  } catch (e) {
+    console.log('loadProfile error:', e);
+    body.innerHTML = '<p style="color:var(--muted);">Nie udało się wczytać profilu. Spróbuj ponownie.</p>';
+  }
+}
+
+function renderProfile(specialist, experience, reviews) {
+  const body = document.getElementById('mp-profile-body');
+
+  const historyHtml = experience.map(exp => `
+    <div class="mp-history-item">
+      <p class="mp-history-text">${escapeHtml(exp.summary)}</p>
+    </div>
+  `).join('');
+
+  const reviewsHtml = reviews.length > 0
+    ? reviews.map(r => `
+        <div class="mp-history-item">
+          <p class="mp-history-text">${escapeHtml(r.comment)}</p>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px;">— ${escapeHtml(r.author_display_name || 'Zawodnik')}</div>
+        </div>
+      `).join('')
+    : `<div class="mp-reviews-empty">Ten specjalista jeszcze nie ma opinii od zawodników w systemie.</div>`;
+
+  body.innerHTML = `
+    <div class="mp-profile-top">
+      <div class="mp-profile-photo">Zdjęcie</div>
+      <div>
+        <div class="mp-profile-name">${escapeHtml(specialist.display_name)}</div>
+        <div class="mp-profile-category">${CATEGORY_LABELS[specialist.category] || specialist.category}</div>
+        ${specialist.verified ? `<div class="mp-profile-badge" title="${escapeHtml(specialist.verification_note || 'Zweryfikowany przez Gamechange')}">✓ Zweryfikowany przez Gamechange</div>` : ''}
+        <div class="mp-profile-location">📍 ${escapeHtml(specialist.city)}${specialist.address ? ', ' + escapeHtml(specialist.address) : ''}${specialist.offers_online ? ' · online' : ''}</div>
+      </div>
+    </div>
+
+    <div class="mp-section">
+      <div class="mp-section-label">O mnie</div>
+      <p class="mp-section-body">${escapeHtml(specialist.bio)}</p>
+    </div>
+
+    ${experience.length > 0 ? `
+    <div class="mp-section">
+      <div class="mp-section-label">Jak wyglądała współpraca — przykłady</div>
+      ${historyHtml}
+    </div>
+    ` : ''}
+
+    <div class="mp-section">
+      <div class="mp-section-label">Opinie zawodników</div>
+      ${reviewsHtml}
+    </div>
+
+    <button class="mp-book-btn" onclick="window.location.href='booking.html?specialist_id=${specialist.id}'">
+      Zarezerwuj termin →
+    </button>
+  `;
+}
+
+loadProfile();
+</script>
+
+</body>
+</html>

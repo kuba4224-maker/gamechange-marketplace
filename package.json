@@ -1,0 +1,11 @@
+{
+  "name": "gamechange-marketplace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gamechange Marketplace — backend API (Vercel Serverless Functions) dla rezerwacji i płatności specjalistów.",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "stripe": "^17.0.0",
+    "raw-body": "^3.0.0"
+  }
+}

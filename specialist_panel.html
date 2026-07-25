@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gamechange Marketplace — Panel specjalisty</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #f5f2ec; --ink: #0e0d0b; --ink2: #3a3830; --muted: #9a9488;
+  --rule: #d8d3c8; --accent: #E8432D; --surface: #ffffff;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; font-size: 15px; line-height: 1.6; }
+
+.mp-header { border-bottom: 1px solid var(--rule); padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+.mp-header-label { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; }
+.mp-logout { font-size: 13px; color: var(--muted); text-decoration: none; cursor: pointer; }
+
+.mp-body { max-width: 680px; margin: 0 auto; padding: 40px 24px 80px; }
+.mp-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 0.01em; margin-bottom: 24px; }
+
+.mp-tabs { display: flex; gap: 8px; margin-bottom: 28px; }
+.mp-tab-btn {
+  flex: 1; padding: 12px; border: 1px solid var(--rule); background: var(--surface);
+  font-family: 'Bebas Neue', sans-serif; font-size: 14px; letter-spacing: 0.04em; cursor: pointer; color: var(--ink);
+}
+.mp-tab-btn.active { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+
+.mp-input { width: 100%; padding: 12px 16px; border: 1px solid var(--rule); background: var(--surface); font-size: 14px; margin-bottom: 12px; }
+.mp-btn { width: 100%; padding: 14px; background: var(--ink); color: var(--bg); border: none; font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 0.06em; cursor: pointer; }
+.mp-btn:hover { background: var(--accent); color: var(--ink); }
+.mp-btn-small { padding: 8px 16px; font-size: 12px; background: var(--ink); color: var(--bg); border: none; font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.04em; cursor: pointer; }
+.mp-btn-small:hover { background: var(--accent); color: var(--ink); }
+
+.mp-booking-card { background: var(--surface); border: 1px solid var(--rule); padding: 16px 18px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.mp-booking-info { font-size: 14px; }
+.mp-booking-status { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+.mp-booking-status.confirmed { color: var(--accent); }
+.mp-booking-status.completed { color: #2a7a3a; }
+
+.mp-empty { text-align: center; padding: 40px 24px; color: var(--muted); font-size: 14px; }
+.mp-error { color: #C0392B; font-size: 13px; margin-top: 10px; }
+.mp-hidden { display: none; }
+
+.mp-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+</style>
+</head>
+<body>
+
+<div class="mp-header">
+  <div class="mp-header-label">Gamechange Marketplace — Panel specjalisty</div>
+  <a class="mp-logout" onclick="handleLogout()">Wyloguj</a>
+</div>
+
+<div class="mp-body">
+
+  <div id="view-login">
+    <div class="mp-title">Zaloguj się</div>
+    <input class="mp-input" id="login-email" type="email" placeholder="Twój email">
+    <button class="mp-btn" onclick="handleSendMagicLink()" id="login-btn">Wyślij link do logowania</button>
+    <div id="login-sent" class="mp-hidden" style="margin-top:14px;font-size:13px;color:var(--muted);">
+      Sprawdź skrzynkę i kliknij w link.
+    </div>
+  </div>
+
+  <div id="view-panel" class="mp-hidden">
+    <div class="mp-title">Twój panel</div>
+
+    <div class="mp-tabs">
+      <button class="mp-tab-btn active" id="tab-bookings" onclick="switchTab('bookings')">Rezerwacje</button>
+      <button class="mp-tab-btn" id="tab-availability" onclick="switchTab('availability')">Dostępność</button>
+    </div>
+
+    <div id="panel-bookings">
+      <div id="bookings-list"></div>
+    </div>
+
+    <div id="panel-availability" class="mp-hidden">
+      <div style="margin-bottom:20px;">
+        <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Nowy termin</div>
+        <div class="mp-grid-2">
+          <input class="mp-input" id="new-slot-start" type="datetime-local">
+          <input class="mp-input" id="new-slot-end" type="datetime-local">
+        </div>
+        <div class="mp-grid-2">
+          <select class="mp-input" id="new-slot-type">
+            <option value="in_person">Stacjonarnie</option>
+            <option value="online">Online</option>
+          </select>
+          <input class="mp-input" id="new-slot-price" type="number" placeholder="Cena (zł)">
+        </div>
+        <button class="mp-btn" onclick="handleCreateSlot()">Dodaj termin</button>
+        <div class="mp-error mp-hidden" id="slot-error"></div>
+      </div>
+
+      <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Twoje nadchodzące terminy</div>
+      <div id="availability-list"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = 'https://kqrbztsvepjtggjmmcdx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_EoYRIZpDhUSdNSJDXWl4Ew_SG8aJABP';
+const MARKETPLACE_API_BASE = ''; // do uzupełnienia po wdrożeniu
+
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let currentUser = null;
+let currentSpecialistId = null;
+
+async function initPanel() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session && session.user) {
+    currentUser = { id: session.user.id, email: session.user.email };
+    await loadSpecialistProfile();
+  }
+
+  supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session && session.user) {
+      currentUser = { id: session.user.id, email: session.user.email };
+      await loadSpecialistProfile();
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      document.getElementById('view-panel').classList.add('mp-hidden');
+      document.getElementById('view-login').classList.remove('mp-hidden');
+    }
+  });
+}
+
+async function loadSpecialistProfile() {
+  // POPRAWKA (pełny audyt całości): to zapytanie nie wysyłało nagłówka
+  // Authorization — bez niego trafiało do PostgREST jako rola `anon`
+  // (auth.uid() = NULL), niezależnie od tego, że użytkownik był już
+  // faktycznie zalogowany (mieliśmy jego session wyżej w initPanel()).
+  // Konsekwencja: nawet z poprawną polityką "właściciel widzi własny
+  // profil" (marketplace_01_specialists.sql, sekcja 5) to zapytanie i tak
+  // nie mogłoby jej wykorzystać, bo auth.uid() w kontekście zapytania był
+  // pusty. Naprawa: ten sam wzorzec co loadBookings() niżej w tym samym
+  // pliku — pobrać bieżącą sesję i dołączyć Bearer token.
+  const session = (await supabaseClient.auth.getSession()).data.session;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/specialists?user_id=eq.${currentUser.id}&select=id`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}` }
+  });
+  const specialists = await res.json();
+
+  if (!specialists || specialists.length === 0) {
+    document.querySelector('.mp-body').innerHTML =
+      '<p style="color:var(--muted);">To konto nie jest jeszcze powiązane z profilem specjalisty. Skontaktuj się z Gamechange.</p>';
+    return;
+  }
+
+  currentSpecialistId = specialists[0].id;
+  document.getElementById('view-login').classList.add('mp-hidden');
+  document.getElementById('view-panel').classList.remove('mp-hidden');
+  await loadBookings();
+}
+
+async function handleSendMagicLink() {
+  const email = document.getElementById('login-email').value.trim();
+  const btn = document.getElementById('login-btn');
+  if (!email || !email.includes('@')) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Wysyłam...';
+  const { error } = await supabaseClient.auth.signInWithOtp({
+    email: email,
+    options: { emailRedirectTo: window.location.href }
+  });
+  btn.disabled = false;
+  btn.textContent = 'Wyślij link do logowania';
+
+  if (!error) document.getElementById('login-sent').classList.remove('mp-hidden');
+}
+
+function handleLogout() {
+  supabaseClient.auth.signOut();
+}
+
+function switchTab(tab) {
+  const bookingsBtn = document.getElementById('tab-bookings');
+  const availabilityBtn = document.getElementById('tab-availability');
+  const bookingsPanel = document.getElementById('panel-bookings');
+  const availabilityPanel = document.getElementById('panel-availability');
+
+  if (tab === 'bookings') {
+    bookingsPanel.classList.remove('mp-hidden');
+    availabilityPanel.classList.add('mp-hidden');
+    bookingsBtn.classList.add('active');
+    availabilityBtn.classList.remove('active');
+  } else {
+    bookingsPanel.classList.add('mp-hidden');
+    availabilityPanel.classList.remove('mp-hidden');
+    availabilityBtn.classList.add('active');
+    bookingsBtn.classList.remove('active');
+    loadAvailability();
+  }
+}
+
+const STATUS_LABELS = {
+  pending_payment: 'Oczekuje na płatność',
+  confirmed: 'Potwierdzona',
+  completed: 'Zakończona',
+  auto_completed: 'Zakończona automatycznie',
+  cancelled: 'Anulowana',
+  no_show: 'Zawodnik się nie pojawił'
+};
+
+async function loadBookings() {
+  const session = (await supabaseClient.auth.getSession()).data.session;
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/bookings?specialist_id=eq.${currentSpecialistId}&order=created_at.desc&select=*,specialist_availability(slot_start,slot_end)`,
+    { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${session.access_token}` } }
+  );
+  const bookings = await res.json();
+
+  const list = document.getElementById('bookings-list');
+  if (!bookings || bookings.length === 0) {
+    list.innerHTML = '<div class="mp-empty">Nie masz jeszcze żadnych rezerwacji.</div>';
+    return;
+  }
+
+  list.innerHTML = bookings.map(b => {
+    const slotInfo = b.specialist_availability;
+    const dateLabel = slotInfo ? new Date(slotInfo.slot_start).toLocaleString('pl-PL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+    const canConfirm = b.status === 'confirmed';
+    return `
+      <div class="mp-booking-card">
+        <div class="mp-booking-info">
+          <div>${dateLabel}</div>
+          <div class="mp-booking-status ${b.status}">${STATUS_LABELS[b.status] || b.status}</div>
+        </div>
+        ${canConfirm ? `<button class="mp-btn-small" onclick="handleConfirmBooking(${b.id})">Potwierdź odbytą wizytę</button>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+async function handleConfirmBooking(bookingId) {
+  const res = await fetch(`${MARKETPLACE_API_BASE}/api/mark-booking-completed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bookingId: bookingId, specialistUserId: currentUser.id })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    alert(data.error || 'Nie udało się potwierdzić wizyty.');
+    return;
+  }
+  await loadBookings();
+}
+
+async function loadAvailability() {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/specialist_availability?specialist_id=eq.${currentSpecialistId}&is_booked=eq.false&order=slot_start.asc`,
+    { headers: { apikey: SUPABASE_KEY } }
+  );
+  const slots = await res.json();
+
+  const list = document.getElementById('availability-list');
+  if (!slots || slots.length === 0) {
+    list.innerHTML = '<div class="mp-empty">Brak zaplanowanych, wolnych terminów.</div>';
+    return;
+  }
+
+  list.innerHTML = slots.map(s => {
+    const label = new Date(s.slot_start).toLocaleString('pl-PL', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    const priceZl = (s.price_cents / 100).toFixed(0);
+    return `<div class="mp-booking-card"><div class="mp-booking-info">${label} · ${priceZl} zł · ${s.session_type === 'online' ? 'online' : 'stacjonarnie'}</div></div>`;
+  }).join('');
+}
+
+async function handleCreateSlot() {
+  const errorEl = document.getElementById('slot-error');
+  errorEl.classList.add('mp-hidden');
+
+  const slotStart = document.getElementById('new-slot-start').value;
+  const slotEnd = document.getElementById('new-slot-end').value;
+  const sessionType = document.getElementById('new-slot-type').value;
+  const priceZl = Number(document.getElementById('new-slot-price').value);
+
+  const session = (await supabaseClient.auth.getSession()).data.session;
+
+  const res = await fetch(`${MARKETPLACE_API_BASE}/api/create-availability-slot`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      specialistId: currentSpecialistId,
+      slotStart: new Date(slotStart).toISOString(),
+      slotEnd: new Date(slotEnd).toISOString(),
+      sessionType: sessionType,
+      priceCents: Math.round(priceZl * 100),
+      accessToken: session.access_token
+    })
+  });
+  const data = await res.json();
+
+  if (!res.ok) {
+    errorEl.textContent = data.error || 'Nie udało się dodać terminu.';
+    errorEl.classList.remove('mp-hidden');
+    return;
+  }
+
+  document.getElementById('new-slot-start').value = '';
+  document.getElementById('new-slot-end').value = '';
+  document.getElementById('new-slot-price').value = '';
+  await loadAvailability();
+}
+
+initPanel();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gamechange Marketplace — Specjaliści</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f2ec;
+  --ink: #0e0d0b;
+  --ink2: #3a3830;
+  --muted: #9a9488;
+  --rule: #d8d3c8;
+  --accent: #E8432D;
+  --surface: #ffffff;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; font-size: 15px; line-height: 1.6; }
+
+.mp-header { border-bottom: 1px solid var(--rule); padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+.mp-header-label { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; }
+.mp-header-back { font-size: 13px; color: var(--muted); text-decoration: none; }
+
+.mp-body { max-width: 760px; margin: 0 auto; padding: 40px 24px 64px; }
+
+.mp-filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 32px; }
+.mp-filter-select {
+  padding: 10px 14px;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--ink2);
+}
+
+.mp-empty-state {
+  text-align: center;
+  padding: 64px 24px;
+  color: var(--muted);
+  font-size: 14px;
+  display: none;
+}
+
+.mp-card-list { display: flex; flex-direction: column; gap: 14px; }
+
+.mp-spec-card {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: 20px 22px;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+.mp-spec-card:hover { border-color: var(--ink); }
+
+.mp-spec-photo {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  background: var(--rule);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.mp-spec-info { flex: 1; min-width: 0; }
+.mp-spec-name { font-family: 'Bebas Neue', sans-serif; font-size: 19px; letter-spacing: 0.01em; }
+.mp-spec-category { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.mp-spec-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--accent); cursor: help;
+}
+.mp-spec-location { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+.mp-spec-arrow { color: var(--muted); font-size: 18px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<div class="mp-header">
+  <div class="mp-header-label">Gamechange Marketplace</div>
+  <a class="mp-header-back" href="index.html">← Wróć</a>
+</div>
+
+<div class="mp-body">
+
+  <div class="mp-filters">
+    <select class="mp-filter-select" id="filter-category" onchange="applyFilters()">
+      <option value="">Wszystkie kategorie</option>
+      <option value="strength_conditioning">Trener przygotowania motorycznego</option>
+      <option value="physiotherapy">Fizjoterapeuta</option>
+      <option value="orthopedics">Ortopeda</option>
+      <option value="nutrition">Dietetyk sportowy</option>
+      <option value="technical_tactical">Trener Techniczno-Taktyczny</option>
+      <option value="sports_psychology">Psycholog sportowy</option>
+    </select>
+    <select class="mp-filter-select" id="filter-city" disabled title="Na start dostępny tylko Wrocław">
+      <option>Wrocław</option>
+    </select>
+  </div>
+
+  <div class="mp-card-list" id="mp-card-list">
+    <!-- Karty wstrzykiwane przez JS z danych Supabase -->
+  </div>
+
+  <div class="mp-empty-state" id="mp-empty-state">
+    Nie znaleziono specjalistów pasujących do tego filtra.
+  </div>
+
+</div>
+
+<script>
+// ------------------------------------------------------------
+// Odczyt danych specjalistów z Supabase (publiczny SELECT, RLS
+// pozwala anon czytać aktywne profile — zgodnie z ustaleniem
+// "kalendarz widoczny bez logowania").
+// ------------------------------------------------------------
+const SUPABASE_URL = 'https://kqrbztsvepjtggjmmcdx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_EoYRIZpDhUSdNSJDXWl4Ew_SG8aJABP';
+
+const CATEGORY_LABELS = {
+  strength_conditioning: 'Trener przygotowania motorycznego',
+  physiotherapy: 'Fizjoterapeuta',
+  orthopedics: 'Ortopeda',
+  nutrition: 'Dietetyk sportowy',
+  technical_tactical: 'Trener Techniczno-Taktyczny',
+  sports_psychology: 'Psycholog sportowy'
+};
+
+let _allSpecialists = [];
+
+async function loadSpecialists() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/specialists?active=eq.true&select=*`, {
+      headers: { 'apikey': SUPABASE_KEY }
+    });
+    if (!res.ok) throw new Error('Nie udało się pobrać listy specjalistów.');
+    _allSpecialists = await res.json();
+    renderSpecialists(_allSpecialists);
+  } catch (e) {
+    console.log('loadSpecialists error:', e);
+    document.getElementById('mp-empty-state').textContent = 'Nie udało się wczytać listy. Spróbuj ponownie.';
+    document.getElementById('mp-empty-state').style.display = 'block';
+  }
+}
+
+function renderSpecialists(specialists) {
+  const list = document.getElementById('mp-card-list');
+  const empty = document.getElementById('mp-empty-state');
+
+  if (specialists.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = specialists.map(s => `
+    <div class="mp-spec-card" onclick="window.location.href='specialist_profile.html?id=${s.id}'">
+      <div class="mp-spec-photo">Zdjęcie</div>
+      <div class="mp-spec-info">
+        <div class="mp-spec-name">${escapeHtml(s.display_name)}</div>
+        <div class="mp-spec-category">${CATEGORY_LABELS[s.category] || s.category}</div>
+        ${s.verified ? `<span class="mp-spec-badge" title="${escapeHtml(s.verification_note || 'Zweryfikowany przez Gamechange')}">✓ Zweryfikowany przez Gamechange</span>` : ''}
+        <div class="mp-spec-location">📍 ${escapeHtml(s.city)}${s.offers_online ? ' · online' : ''}</div>
+      </div>
+      <div class="mp-spec-arrow">→</div>
+    </div>
+  `).join('');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+function applyFilters() {
+  const category = document.getElementById('filter-category').value;
+  const filtered = category
+    ? _allSpecialists.filter(s => s.category === category)
+    : _allSpecialists;
+  renderSpecialists(filtered);
+}
+
+// Jeśli przyszliśmy z guided_match.html z parametrem ?category=X,
+// od razu ustaw filtr na tę kategorię.
+function applyCategoryFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const category = params.get('category');
+  if (category) {
+    document.getElementById('filter-category').value = category;
+  }
+}
+
+applyCategoryFromUrl();
+loadSpecialists().then(() => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('category')) applyFilters();
+});
+</script>
+
+</body>
+</html>

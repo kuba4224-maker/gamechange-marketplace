@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gamechange Marketplace — Rezerwacja</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<script src="https://js.stripe.com/v3/"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #f5f2ec; --ink: #0e0d0b; --ink2: #3a3830; --muted: #9a9488;
+  --rule: #d8d3c8; --accent: #E8432D; --surface: #ffffff;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; font-size: 15px; line-height: 1.6; }
+
+.mp-header { border-bottom: 1px solid var(--rule); padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+.mp-header-label { font-family: 'Bebas Neue', sans-serif; font-size: 13px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; }
+.mp-header-back { font-size: 13px; color: var(--muted); text-decoration: none; }
+
+.mp-body { max-width: 520px; margin: 0 auto; padding: 48px 24px 80px; }
+.mp-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 0.01em; margin-bottom: 24px; }
+
+.mp-section { margin-bottom: 28px; }
+.mp-section-label { font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+
+/* Logowanie */
+.mp-input {
+  width: 100%; padding: 12px 16px; border: 1px solid var(--rule); background: var(--surface);
+  font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--ink); outline: none; margin-bottom: 12px;
+}
+.mp-input:focus { border-color: var(--ink); }
+.mp-btn {
+  width: 100%; padding: 14px; background: var(--ink); color: var(--bg); border: none;
+  font-family: 'Bebas Neue', sans-serif; font-size: 15px; letter-spacing: 0.06em; cursor: pointer;
+}
+.mp-btn:hover { background: var(--accent); color: var(--ink); }
+.mp-btn:disabled { opacity: 0.5; cursor: default; }
+.mp-btn-secondary {
+  width: 100%; padding: 14px; background: transparent; color: var(--muted); border: 1px solid var(--rule);
+  font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer;
+}
+
+/* Wybór slotu */
+.mp-slot-btn {
+  display: block; width: 100%; text-align: left; padding: 14px 16px; border: 1px solid var(--rule);
+  background: var(--surface); font-size: 14px; color: var(--ink2); cursor: pointer; margin-bottom: 8px;
+}
+.mp-slot-btn:hover { border-color: var(--ink); }
+.mp-slot-btn.sel { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+
+/* Zgoda na dane */
+.mp-consent-box {
+  background: var(--surface); border: 1px solid var(--rule); padding: 16px;
+}
+.mp-checkbox-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; font-size: 13px; color: var(--ink2); }
+.mp-checkbox-row input { margin-top: 3px; }
+.mp-consent-note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+textarea.mp-input { resize: vertical; min-height: 70px; font-family: 'DM Sans', sans-serif; }
+
+#payment-element { margin-bottom: 16px; }
+
+.mp-error { color: #C0392B; font-size: 13px; margin-top: 10px; display: none; }
+.mp-hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="mp-header">
+  <div class="mp-header-label">Gamechange Marketplace</div>
+  <a class="mp-header-back" href="#" onclick="history.back();return false;">← Wróć</a>
+</div>
+
+<div class="mp-body">
+  <div class="mp-title">Rezerwacja terminu</div>
+
+  <!-- Widok 1: logowanie (jeśli niezalogowany) -->
+  <div id="view-login" class="mp-section mp-hidden">
+    <p style="font-size:14px;color:var(--ink2);font-weight:300;margin-bottom:16px;">
+      Zaloguj się, żeby dokończyć rezerwację. Wystarczy email, bez hasła.
+    </p>
+    <input class="mp-input" id="login-email" type="email" placeholder="Twój email">
+    <button class="mp-btn" onclick="handleSendMagicLink()" id="login-btn">Wyślij link do logowania</button>
+    <div id="login-sent" class="mp-hidden" style="margin-top:14px;font-size:13px;color:var(--muted);">
+      Sprawdź skrzynkę i kliknij w link, żeby wrócić tutaj zalogowany/a.
+    </div>
+  </div>
+
+  <!-- Widok 2: wybór slotu -->
+  <div id="view-slots" class="mp-section mp-hidden">
+    <div class="mp-section-label">Wybierz termin</div>
+    <div id="slots-list"></div>
+  </div>
+
+  <!-- Widok 3: zgoda na dane + płatność -->
+  <div id="view-confirm" class="mp-section mp-hidden">
+
+    <div class="mp-section">
+      <div class="mp-section-label">Kontekst dla specjalisty (opcjonalnie)</div>
+      <div class="mp-consent-box">
+        <label class="mp-checkbox-row">
+          <input type="checkbox" id="consent-diagnosis">
+          Dołącz link do mojej ostatniej diagnozy Gamechange
+        </label>
+        <label class="mp-checkbox-row">
+          <input type="checkbox" id="consent-note-toggle" onchange="toggleNoteField(this.checked)">
+          Dodaj notatkę (max 500 znaków)
+        </label>
+        <textarea class="mp-input mp-hidden" id="consent-note" maxlength="500" placeholder="Krótko opisz swoją sytuację..."></textarea>
+        <p class="mp-consent-note">To zobaczy wyłącznie wybrany specjalista. Możesz zarezerwować też bez tego.</p>
+      </div>
+    </div>
+
+    <div class="mp-section">
+      <div class="mp-section-label">Płatność</div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+        Kartę autoryzujemy teraz, obciążenie nastąpi bliżej terminu wizyty.
+      </p>
+      <div id="payment-element"></div>
+    </div>
+
+    <button class="mp-btn" onclick="handleConfirmBooking()" id="confirm-btn">Potwierdź rezerwację</button>
+    <div class="mp-error" id="booking-error"></div>
+  </div>
+
+  <!-- Widok 4: potwierdzenie -->
+  <div id="view-done" class="mp-section mp-hidden">
+    <p style="font-size:15px;color:var(--ink2);">
+      Rezerwacja przyjęta. Karta jest autoryzowana, obciążenie nastąpi bliżej terminu wizyty.
+      Otrzymasz potwierdzenie na email.
+    </p>
+  </div>
+
+</div>
+
+<script>
+const SUPABASE_URL = 'https://kqrbztsvepjtggjmmcdx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_EoYRIZpDhUSdNSJDXWl4Ew_SG8aJABP';
+const MARKETPLACE_API_BASE = ''; // do uzupełnienia po wdrożeniu (adres /api/ Vercel)
+const STRIPE_PUBLISHABLE_KEY = ''; // do uzupełnienia po wdrożeniu
+
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let currentUser = null;
+let selectedAvailabilityId = null;
+let selectedSpecialistId = null;
+let stripe = null;
+let elements = null;
+
+function getSpecialistIdFromUrl() {
+  return new URLSearchParams(window.location.search).get('specialist_id');
+}
+
+async function initBookingScreen() {
+  selectedSpecialistId = getSpecialistIdFromUrl();
+  if (!selectedSpecialistId) {
+    document.querySelector('.mp-body').innerHTML = '<p style="color:var(--muted);">Brak wskazanego specjalisty.</p>';
+    return;
+  }
+
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session && session.user) {
+    currentUser = { id: session.user.id, email: session.user.email };
+    await showSlotsView();
+  } else {
+    document.getElementById('view-login').classList.remove('mp-hidden');
+  }
+
+  supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session && session.user) {
+      currentUser = { id: session.user.id, email: session.user.email };
+      document.getElementById('view-login').classList.add('mp-hidden');
+      await showSlotsView();
+    }
+  });
+}
+
+async function handleSendMagicLink() {
+  const email = document.getElementById('login-email').value.trim();
+  const btn = document.getElementById('login-btn');
+  if (!email || !email.includes('@')) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Wysyłam...';
+  const { error } = await supabaseClient.auth.signInWithOtp({
+    email: email,
+    options: { emailRedirectTo: window.location.href }
+  });
+  btn.disabled = false;
+  btn.textContent = 'Wyślij link do logowania';
+
+  if (!error) {
+    document.getElementById('login-sent').classList.remove('mp-hidden');
+  }
+}
+
+async function showSlotsView() {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/specialist_availability?specialist_id=eq.${selectedSpecialistId}&is_booked=eq.false&order=slot_start.asc&select=*`,
+    { headers: { apikey: SUPABASE_KEY } }
+  );
+  const slots = await res.json();
+
+  const list = document.getElementById('slots-list');
+  if (!slots || slots.length === 0) {
+    list.innerHTML = '<p style="color:var(--muted);font-size:14px;">Brak dostępnych terminów.</p>';
+  } else {
+    list.innerHTML = slots.map(s => {
+      const date = new Date(s.slot_start);
+      const label = date.toLocaleString('pl-PL', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      const priceZl = (s.price_cents / 100).toFixed(0);
+      return `<button class="mp-slot-btn" data-id="${s.id}" data-price="${s.price_cents}" onclick="selectSlot(${s.id}, this)">${label} · ${priceZl} zł</button>`;
+    }).join('');
+  }
+
+  document.getElementById('view-slots').classList.remove('mp-hidden');
+}
+
+function selectSlot(availabilityId, btn) {
+  selectedAvailabilityId = availabilityId;
+  document.querySelectorAll('.mp-slot-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+  showConfirmView();
+}
+
+function toggleNoteField(show) {
+  document.getElementById('consent-note').classList.toggle('mp-hidden', !show);
+}
+
+async function showConfirmView() {
+  document.getElementById('view-confirm').classList.remove('mp-hidden');
+
+  // Tworzymy rezerwację od razu (status pending_payment), żeby dostać
+  // client_secret do Stripe Elements. Jeśli zawodnik zmieni zdanie i
+  // nie dokończy płatności, rezerwacja zostaje w pending_payment i
+  // nie blokuje slotu (trigger reaguje tylko na status='confirmed').
+  const shareDiagnosis = document.getElementById('consent-diagnosis').checked;
+  const note = document.getElementById('consent-note').value.trim();
+
+  try {
+    const res = await fetch(`${MARKETPLACE_API_BASE}/api/create-booking`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: currentUser.id,
+        availabilityId: selectedAvailabilityId,
+        sharedDiagnosis: shareDiagnosis,
+        sharedNote: note || null,
+        consentGivenBy: (shareDiagnosis || note) ? 'self' : null
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      showBookingError(data.error || 'Nie udało się utworzyć rezerwacji.');
+      return;
+    }
+
+    stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+    elements = stripe.elements({ clientSecret: data.clientSecret });
+    const paymentElement = elements.create('payment');
+    paymentElement.mount('#payment-element');
+
+    window._currentBookingId = data.bookingId;
+  } catch (e) {
+    console.log('showConfirmView error:', e);
+    showBookingError('Coś poszło nie tak. Spróbuj ponownie.');
+  }
+}
+
+function showBookingError(msg) {
+  const el = document.getElementById('booking-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+async function handleConfirmBooking() {
+  const btn = document.getElementById('confirm-btn');
+  document.getElementById('booking-error').style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Przetwarzam...';
+
+  const { error } = await stripe.confirmPayment({
+    elements,
+    confirmParams: {
+      return_url: window.location.href.split('?')[0] + '?booking_done=1'
+    }
+  });
+
+  if (error) {
+    showBookingError(error.message || 'Nie udało się potwierdzić płatności.');
+    btn.disabled = false;
+    btn.textContent = 'Potwierdź rezerwację';
+    return;
+  }
+  // Jeśli nie było przekierowania (np. karta bez 3DS), pokaż potwierdzenie od razu.
+  document.getElementById('view-confirm').classList.add('mp-hidden');
+  document.getElementById('view-done').classList.remove('mp-hidden');
+}
+
+// Jeśli wracamy z przekierowania Stripe (np. po 3DS)
+if (new URLSearchParams(window.location.search).get('booking_done')) {
+  window.addEventListener('load', () => {
+    document.getElementById('view-slots').classList.add('mp-hidden');
+    document.getElementById('view-confirm').classList.add('mp-hidden');
+    document.getElementById('view-done').classList.remove('mp-hidden');
+  });
+} else {
+  initBookingScreen();
+}
+</script>
+
+</body>
+</html>
