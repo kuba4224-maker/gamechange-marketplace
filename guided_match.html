@@ -163,8 +163,8 @@ body {
     <div class="mp-question">Który obszar najbardziej pasuje?</div>
     <button class="mp-option-btn" onclick="selectGoal('strength_conditioning')">Chcę biegać szybciej i być silniejszy</button>
     <button class="mp-option-btn" onclick="selectGoal('physiotherapy')">Wracam do formy po kontuzji / przeciążeniu</button>
-    <button class="mp-option-btn" onclick="selectGoal('nutrition')">Chcę lepiej zarządzać energią i dietą</button>
-    <button class="mp-option-btn" onclick="selectGoal('technical_tactical')">Chcę poprawić technikę i czytanie gry</button>
+    <button class="mp-option-btn" onclick="selectGoal('nutrition')">Chcę lepiej zarządzać energią, dietą, suplementacją i regeneracją</button>
+    <button class="mp-option-btn" onclick="selectGoal('technical_tactical')">Chcę poprawić technikę, taktykę, czytanie gry i decyzje pod presją</button>
     <button class="mp-option-btn" onclick="selectGoal('sports_psychology')">Pracuję nad głową — presją, pewnością siebie</button>
   </div>
 
@@ -196,7 +196,12 @@ const SUPABASE_KEY = 'sb_publishable_EoYRIZpDhUSdNSJDXWl4Ew_SG8aJABP';
 // ------------------------------------------------------------
 const SEGMENT_TO_CATEGORY_CHRONIC = {
   moc: 'strength_conditioning', wytrzymalosc: 'strength_conditioning', fizycznosc: 'strength_conditioning',
-  regeneracja: 'physiotherapy', tolerancja: 'physiotherapy', odpornosc: 'physiotherapy',
+  tolerancja: 'physiotherapy',
+  // regeneracja i odpornosc: zmiana physiotherapy -> nutrition, zaakceptowana przez Kube 26.07.2026
+  // (patrz claude/MAPOWANIE_SEGMENTOW_KATEGORIE_MARKETPLACE.md) -- protokoly tych segmentow to
+  // sen + odzywienie potreningowe + magnez (regeneracja) i bialko/wit.D/cynk/zelazo (odpornosc),
+  // zero pokrycia fizjoterapeutycznego.
+  regeneracja: 'nutrition', odpornosc: 'nutrition',
   odzywianie: 'nutrition',
   techFund: 'technical_tactical', techSpec: 'technical_tactical', percepcja: 'technical_tactical', decyzja: 'technical_tactical',
   koncentracja: 'sports_psychology', mental: 'sports_psychology'
