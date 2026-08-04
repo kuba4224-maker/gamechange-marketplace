@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gamechange Marketplace — Specjaliści</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<!-- Dodane 03.08.2026 (most sesji Asystent -> Marketplace, KOLEJKA_DECYZJI 1.1) — ta strona
+     wcześniej nie potrzebowała klienta Supabase Auth (tylko publiczny fetch listy specjalistów),
+     teraz potrzebuje go do consumeBridgeCodeIfPresent() niżej. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
   --bg: #f5f2ec;
@@ -123,6 +127,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--i
 // ------------------------------------------------------------
 const SUPABASE_URL = 'https://kqrbztsvepjtggjmmcdx.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_EoYRIZpDhUSdNSJDXWl4Ew_SG8aJABP';
+const MARKETPLACE_API_BASE = 'https://gamechange-marketplace.vercel.app';
+
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const CATEGORY_LABELS = {
   strength_conditioning: 'Trener przygotowania motorycznego',
@@ -199,6 +206,53 @@ function applyCategoryFromUrl() {
   }
 }
 
+// ------------------------------------------------------------
+// Most sesji Asystent -> Marketplace (KOLEJKA_DECYZJI 1.1). Dodane
+// 03.08.2026. Jeśli zawodnik przyszedł tu z linku wygenerowanego w
+// asystent_app.html (patrz openMarketplaceForCategory() tamże), URL ma
+// dopisany ?bridge_code=... — wymieniamy go tu na prawdziwą sesję
+// Supabase Auth, ZANIM zawodnik dojdzie do booking.html. Dzięki temu,
+// że booking.html i ta strona dzielą ten sam origin (i więc ten sam
+// localStorage), booking.html znajdzie tę sesję samo, przez swoje już
+// istniejące supabaseClient.auth.getSession() — zero zmian potrzebnych
+// w booking.html.
+//
+// ŚWIADOMIE "najlepszy wysiłek": każdy błąd na dowolnym etapie (kod
+// nieprawidłowy/wygasł, endpoint niedostępny, verifyOtp się nie uda)
+// jest po cichu ignorowany — zawodnik i tak trafia na tę stronę i może
+// przeglądać normalnie, tylko przy rezerwacji zobaczy zwykły ekran
+// logowania (dokładnie to, co było standardem PRZED tym mostem). Most
+// ma wyłącznie USUWAĆ tarcie, nigdy nie może go dodać/zablokować.
+async function consumeBridgeCodeIfPresent() {
+  const params = new URLSearchParams(window.location.search);
+  const bridgeCode = params.get('bridge_code');
+  if (!bridgeCode) return;
+
+  // Kod usuwamy z paska adresu od razu (nie czekamy na wynik wymiany) —
+  // jednorazowy kod nie powinien zostać w historii/URL do odświeżenia.
+  params.delete('bridge_code');
+  const cleanUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
+  window.history.replaceState({}, '', cleanUrl);
+
+  try {
+    const res = await fetch(`${MARKETPLACE_API_BASE}/api/exchange-bridge-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: bridgeCode }),
+    });
+    if (!res.ok) return; // ciche wycofanie, patrz komentarz wyżej
+    const { tokenHash } = await res.json();
+    if (!tokenHash) return;
+
+    await supabaseClient.auth.verifyOtp({ token_hash: tokenHash, type: 'email' });
+    // Zero UI tutaj celowo — ta strona i tak jest publiczna/anonimowa
+    // z założenia, sesja "cichym echem" czeka na booking.html.
+  } catch (e) {
+    console.log('consumeBridgeCodeIfPresent: most sesji nieudany, kontynuuję bez niego —', e);
+  }
+}
+
+consumeBridgeCodeIfPresent();
 applyCategoryFromUrl();
 loadSpecialists().then(() => {
   const params = new URLSearchParams(window.location.search);
