@@ -112,6 +112,15 @@ Dodaj notatkę (max 500 znaków)
 </div>
 </div>
 
+<!-- AUDYT 06.08.2026 — krok "Dalej do płatności" DODANY. Wcześniej sekcja
+     płatności i przycisk potwierdzenia były widoczne od razu, a rezerwacja
+     (POST /api/create-booking) powstawała już w momencie kliknięcia terminu —
+     czyli ZANIM zawodnik zobaczył checkboxy zgody. Skutkiem było to, że do
+     specjalisty zawsze leciało sharedDiagnosis:false / consentGivenBy:null,
+     niezależnie od tego, co zawodnik zaznaczył. -->
+<button class="mp-btn" onclick="proceedToPayment()" id="proceed-btn">Dalej do płatności</button>
+
+<div id="payment-block" class="mp-hidden">
 <div class="mp-section">
 <div class="mp-section-label">Płatność</div>
 <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">
@@ -121,6 +130,7 @@ Kartę autoryzujemy teraz, obciążenie nastąpi bliżej terminu wizyty.
 </div>
 
 <button class="mp-btn" onclick="handleConfirmBooking()" id="confirm-btn">Potwierdź rezerwację</button>
+</div>
 <div class="mp-error" id="booking-error"></div>
 </div>
 
@@ -146,6 +156,13 @@ let selectedAvailabilityId = null;
 let selectedSpecialistId = null;
 let stripe = null;
 let elements = null;
+let paymentElement = null;
+
+// AUDYT 06.08.2026 — Marketplace jest ZAMROŻONY decyzją Kuby (brak podaży
+// specjalistów, klucz Stripe wciąż testowy `pk_test_...`). Wejścia z appki
+// mobilnej i z panelu trenera są ukryte flagą MARKETPLACE_ENABLED = false.
+// Ten plik naprawiony mimo zamrożenia, bo zawierał wadę RODO, której NIE WOLNO
+// odmrozić razem z resztą — patrz komentarz przy proceedToPayment() niżej.
 
 function getSpecialistIdFromUrl() {
 return new URLSearchParams(window.location.search).get('specialist_id');
@@ -216,27 +233,72 @@ return `<button class="mp-slot-btn" data-id="${s.id}" data-price="${s.price_cent
 document.getElementById('view-slots').classList.remove('mp-hidden');
 }
 
+// AUDYT 06.08.2026 — wybór terminu NIE tworzy już rezerwacji.
+// Wcześniej każde kliknięcie slotu wywoływało showConfirmView(), które od razu
+// robiło POST /api/create-booking i montowało Stripe Payment Element. Zmiana
+// zdania co do godziny zostawiała więc wiszący wiersz `pending_payment` i
+// montowała DRUGI Payment Element w tym samym kontenerze #payment-element.
+// Teraz wybór slotu tylko pokazuje krok zgody i czyści poprzedni stan płatności.
 function selectSlot(availabilityId, btn) {
 selectedAvailabilityId = availabilityId;
 document.querySelectorAll('.mp-slot-btn').forEach(b => b.classList.remove('sel'));
 btn.classList.add('sel');
-showConfirmView();
+resetPaymentState();
+document.getElementById('view-confirm').classList.remove('mp-hidden');
+}
+
+// Sprząta po poprzednio wybranym terminie: odmontowuje Payment Element,
+// chowa sekcję płatności i odblokowuje krok zgody.
+function resetPaymentState() {
+if (paymentElement) {
+try { paymentElement.unmount(); } catch (e) { /* element mógł już nie istnieć */ }
+paymentElement = null;
+}
+stripe = null;
+elements = null;
+window._currentBookingId = null;
+document.getElementById('payment-block').classList.add('mp-hidden');
+document.getElementById('booking-error').style.display = 'none';
+setConsentEnabled(true);
+const proceedBtn = document.getElementById('proceed-btn');
+proceedBtn.classList.remove('mp-hidden');
+proceedBtn.disabled = false;
+proceedBtn.textContent = 'Dalej do płatności';
+const confirmBtn = document.getElementById('confirm-btn');
+confirmBtn.disabled = false;
+confirmBtn.textContent = 'Potwierdź rezerwację';
+}
+
+// Po utworzeniu rezerwacji zgoda jest już zapisana po stronie serwera, więc
+// pola muszą przestać być edytowalne — inaczej zawodnik zmieniałby coś, co
+// nigdzie by nie doszło (dokładnie ten sam błąd, który tu naprawiamy).
+function setConsentEnabled(enabled) {
+['consent-diagnosis', 'consent-note-toggle', 'consent-note'].forEach(id => {
+const el = document.getElementById(id);
+if (el) el.disabled = !enabled;
+});
 }
 
 function toggleNoteField(show) {
 document.getElementById('consent-note').classList.toggle('mp-hidden', !show);
 }
 
-async function showConfirmView() {
-document.getElementById('view-confirm').classList.remove('mp-hidden');
+// AUDYT 06.08.2026 — dawne showConfirmView(), przemianowane i przeniesione za
+// krok zgody. Rezerwacja (status pending_payment) powstaje TERAZ, po tym jak
+// zawodnik zobaczył i wypełnił checkboxy — dopiero wtedy odczyt `.checked` i
+// `.value` ma jakikolwiek sens. Jeśli zawodnik nie dokończy płatności,
+// rezerwacja zostaje w pending_payment i nie blokuje slotu (trigger reaguje
+// tylko na status='confirmed'), czyli zachowanie jak wcześniej.
+async function proceedToPayment() {
+if (!selectedAvailabilityId) return;
+if (window._currentBookingId) return; // zabezpieczenie przed podwójnym kliknięciem
 
-// Tworzymy rezerwację od razu (status pending_payment), żeby dostać
-// client_secret do Stripe Elements. Jeśli zawodnik zmieni zdanie i
-// nie dokończy płatności, rezerwacja zostaje w pending_payment i
-// nie blokuje slotu (trigger reaguje tylko na status='confirmed').
 const shareDiagnosis = document.getElementById('consent-diagnosis').checked;
 const note = document.getElementById('consent-note').value.trim();
 const confirmBtn = document.getElementById('confirm-btn');
+const proceedBtn = document.getElementById('proceed-btn');
+proceedBtn.disabled = true;
+proceedBtn.textContent = 'Przygotowuję płatność...';
 
 try {
 const res = await fetch(`${MARKETPLACE_API_BASE}/api/create-booking`, {
@@ -263,19 +325,29 @@ if (!res.ok) {
 // dało się wywołać płatności bez poprawnie zainicjowanych Stripe Elements.
 showBookingError(data.error || 'Nie udało się utworzyć rezerwacji.');
 confirmBtn.disabled = true;
+// AUDYT 06.08.2026 — pozwól spróbować ponownie zamiast zostawiać martwy ekran.
+proceedBtn.disabled = false;
+proceedBtn.textContent = 'Spróbuj ponownie';
 return;
 }
 
 stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
 elements = stripe.elements({ clientSecret: data.clientSecret });
-const paymentElement = elements.create('payment');
+paymentElement = elements.create('payment');
 paymentElement.mount('#payment-element');
 
 window._currentBookingId = data.bookingId;
+
+// Zgoda jest już zapisana przy rezerwacji — zamykamy jej edycję i odsłaniamy płatność.
+setConsentEnabled(false);
+proceedBtn.classList.add('mp-hidden');
+document.getElementById('payment-block').classList.remove('mp-hidden');
 } catch (e) {
-console.log('showConfirmView error:', e);
+console.log('proceedToPayment error:', e);
 showBookingError('Coś poszło nie tak. Spróbuj ponownie.');
 confirmBtn.disabled = true;
+proceedBtn.disabled = false;
+proceedBtn.textContent = 'Spróbuj ponownie';
 }
 }
 
